@@ -1,0 +1,16 @@
+[project]
+name = "spam-eggs"
+version = "0.0.1"
+dependencies = [
+             "pyright",
+             "debugpy",
+             "simple-term-menu",
+             "ruff",
+             "mypy",
+]
+
+
+
+[tools.ruff]
+select = "I"
+line-length = 88
