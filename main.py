@@ -129,7 +129,7 @@ class CommentsPage(Page):
             + f"?GetComments=type_=Local&limit=30&max_depth=3&sort=Hot&post_id={self.context.objs["post"]._id}&community_name={self.context.objs["post"].community}"
         )
         response = requests.get(url, headers=self.headers).json()["comments"]
-        self.comments.extend([Comment.from_dict(d) for d in response])
+        self.comments = [Comment.from_dict(d) for d in response]
         cd = {c.path: c for c in self.comments}
         self.sorted_comments: dict[str, Comment] = dict(sorted(cd.items()))
         menu = TerminalMenu(
