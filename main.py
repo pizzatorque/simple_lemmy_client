@@ -104,21 +104,6 @@ class Displayer(Protocol):
     def display(self) -> None: ...
 
 
-class PostPage(Page):
-    post: Post
-    url = "https://lemmy.ml/api/v3/post"
-    headers = {"accept": "application/json"}
-    context: Context
-
-    def __init__(self, context: Context):
-        self.context = context
-
-    def display(self) -> None:
-        url = self.url + "?id=" + self.post._id
-        response: dict = requests.get(url, headers=self.headers).json()
-        pprint(response)
-
-
 class CommentsPage(Page):
     post: Post
     url = "https://lemmy.ml/api/v3/comment/list"
@@ -129,10 +114,16 @@ class CommentsPage(Page):
 
     def __init__(self, context: Context):
         self.context = context
+        print(self.context.prev_page)
 
     def get_comment_body(self, partial_body: str):
         key = partial_body.split(":::")[0]
-        return self.sorted_comments[key].body
+        body: str = self.sorted_comments[key].body
+        lines = body.split()
+        for l in range(len(lines)):
+            if not l % 10 and l:
+                lines[l] = lines[l] + "\n"
+        return " ".join(lines)
 
     def display(self) -> None:
         url = (
@@ -154,11 +145,11 @@ class CommentsPage(Page):
             preview_command=self.get_comment_body,
         )
         val = menu.show()
-        print(menu.chosen_accept_key, val)
         self.context.prev_page.append(CommentsPage)
         match menu.chosen_accept_key:
             case "backspace":
                 self.context.prev_page = self.context.prev_page[:-1]
+                self.context.objs.pop("post")
                 self.context.prev_page[-1](self.context).display()
             case _:
                 print(val)
@@ -172,14 +163,9 @@ class CustomHome(Page):
 
     def __init__(self, context: Context):
         self.context = context
-        self.context.prev_page.append(CustomHome)
-
-    @classmethod
-    def from_option(cls, context: Context, community_name: str) -> CustomHome:
-        ch = CustomHome(context)
-        ch.url = ch.url.format(community_name)
-        print("URL:::", ch.url)
-        return ch
+        community_name = context.objs["community_name"]
+        self.url = self.url.format(community_name)
+        print(self.context.prev_page)
 
     def get_post_body(self, name: str):
         posts = [i for i in self.posts if i.title.startswith(name.split("::")[0])]
@@ -193,12 +179,23 @@ class CustomHome(Page):
         menu = TerminalMenu(
             [p.to_menu_entry() for p in self.posts],
             title="Posts",
+            accept_keys=("enter", "alt-d", "backspace"),
             preview_border=True,
             preview_command=self.get_post_body,
         )
         val: int = menu.show()
-        self.context.objs["post"] = self.posts[val]
-        CommentsPage(context=self.context).display()
+
+        if self.context.prev_page[-1] != type(self):
+            self.context.prev_page.append(CustomHome)
+        match menu.chosen_accept_key:
+            case "backspace":
+                print("BEFORE::", self.context.prev_page)
+                self.context.prev_page = self.context.prev_page[:-1]
+                print("AFTER::", self.context.prev_page)
+                self.context.prev_page[-1](self.context).display()
+            case _:
+                self.context.objs["post"] = self.posts[val]
+                CommentsPage(context=self.context).display()
 
 
 class LocalHome(Page):
@@ -209,7 +206,7 @@ class LocalHome(Page):
 
     def __init__(self, context: Context):
         self.context = context
-        self.context.prev_page.append(LocalHome)
+        print(self.context.prev_page)
 
     def get_post_body(self, name: str):
         posts = [i for i in self.posts if i.title.startswith(name.split("::")[0])]
@@ -228,6 +225,7 @@ class LocalHome(Page):
         )
         val: int = menu.show()
         self.context.objs["post"] = self.posts[val]
+        self.context.prev_page.append(LocalHome)
         CommentsPage(context=self.context).display()
 
 
@@ -239,10 +237,12 @@ class MyCommunities(Page):
 
     def __init__(self, context: Context) -> None:
         self.context = context
-        self.context.prev_page.append(MyCommunities)
+        self.communities = context.objs["communities"]
+        print(self.context.prev_page)
 
     @classmethod
     def from_communities(cls, c: list[str], context: Context):
+        context.objs["communities"] = c
         my_communities = cls(context)
         my_communities.communities = c
         return my_communities
@@ -253,7 +253,10 @@ class MyCommunities(Page):
             title="Communities 💬",
         )
         val: int = menu.show()
-        CustomHome.from_option(self.context, self.communities[val]).display()
+        self.context.objs["community_name"] = self.communities[val]
+        if not len(self.context.prev_page):
+            self.context.prev_page.append(MyCommunities)
+        CustomHome(self.context).display()
 
 
 def __is_displayer(_: type[Displayer]):
@@ -262,7 +265,6 @@ def __is_displayer(_: type[Displayer]):
 
 __is_displayer(LocalHome)
 __is_displayer(CommentsPage)
-__is_displayer(PostPage)
 __is_displayer(MyCommunities)
 __is_displayer(CustomHome)
 
