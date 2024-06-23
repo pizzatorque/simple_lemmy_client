@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from dataclasses import dataclass, field
-from pprint import pprint
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 import requests
@@ -114,7 +113,6 @@ class CommentsPage(Page):
 
     def __init__(self, context: Context):
         self.context = context
-        print(self.context.prev_page)
 
     def get_comment_body(self, partial_body: str):
         key = partial_body.split(":::")[0]
@@ -165,7 +163,6 @@ class CustomHome(Page):
         self.context = context
         community_name = context.objs["community_name"]
         self.url = self.url.format(community_name)
-        print(self.context.prev_page)
 
     def get_post_body(self, name: str):
         posts = [i for i in self.posts if i.title.startswith(name.split("::")[0])]
@@ -189,9 +186,7 @@ class CustomHome(Page):
             self.context.prev_page.append(CustomHome)
         match menu.chosen_accept_key:
             case "backspace":
-                print("BEFORE::", self.context.prev_page)
                 self.context.prev_page = self.context.prev_page[:-1]
-                print("AFTER::", self.context.prev_page)
                 self.context.prev_page[-1](self.context).display()
             case _:
                 self.context.objs["post"] = self.posts[val]
@@ -206,7 +201,6 @@ class LocalHome(Page):
 
     def __init__(self, context: Context):
         self.context = context
-        print(self.context.prev_page)
 
     def get_post_body(self, name: str):
         posts = [i for i in self.posts if i.title.startswith(name.split("::")[0])]
@@ -238,7 +232,6 @@ class MyCommunities(Page):
     def __init__(self, context: Context) -> None:
         self.context = context
         self.communities = context.objs["communities"]
-        print(self.context.prev_page)
 
     @classmethod
     def from_communities(cls, c: list[str], context: Context):
